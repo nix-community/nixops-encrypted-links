@@ -100,10 +100,10 @@ def mk_matrix(d: Deployment) -> Dict[str, List[Dict[Tuple[str, ...], Any]]]:
         attrs_list = attrs_per_resource[m.name]
 
         # Emit configuration to realise encrypted peer-to-peer links.
-        for m2 in active_resources.values():
-            ip = m.address_to(m2)
+        for r2 in active_resources.values():
+            ip = m.address_to(r2)
             if ip:
-                hosts[m.name][ip] += [m2.name, m2.name + "-unencrypted"]
+                hosts[m.name][ip] += [r2.name, r2.name + "-unencrypted"]
 
         # Always use the encrypted/unencrypted suffixes for aliases rather
         # than for the canonical name!
@@ -126,6 +126,10 @@ def mk_matrix(d: Deployment) -> Dict[str, List[Dict[Tuple[str, ...], Any]]]:
                 and m.name >= m2.name
             ):
                 continue
+            if not m.index:
+                raise ValueError("Index was: {type(m.index)}")
+            if not m2.index:
+                raise ValueError("Index was: {type(m.index)}")
             local_ipv4 = index_to_private_ip(m.index)
             remote_ipv4 = index_to_private_ip(m2.index)
             local_tunnel = 10000 + m2.index
