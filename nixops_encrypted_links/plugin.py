@@ -1,35 +1,50 @@
 import os.path
 import nixops.plugins
-from nixops.deployment import Deployment, DeploymentPlugin
-from nixops.backends import MachineState, MachinePlugin
+from nixops.deployment import Deployment
+from nixops.backends import MachineState
+from nixops.plugins import Plugin, MachineHooks, DeploymentHooks
+
+from .lib import generate_vpn_key
+from .lib import mk_matrix
+
+
+class EncryptedLinksMachineHooks(MachineHooks):
+
+    def post_wait(self, m: MachineState) -> None:
+        generate_vpn_key(m)
+
+
+class EncryptedLinksDeploymentHooks(DeploymentHooks):
+
+    def physical_spec(self, d: Deployment):
+        return mk_matrix(d)
+
+
+class NixopsEncryptedLinksPlugin(Plugin):
+
+    def __init__(self):
+        self._deployment_hooks = EncryptedLinksDeploymentHooks()
+        self._machine_hooks = EncryptedLinksMachineHooks()
+
+    def deployment_hooks(self) -> EncryptedLinksDeploymentHooks:
+        return self._deployment_hooks
+
+    def machine_hooks(self) -> EncryptedLinksMachineHooks:
+        return self._machine_hooks
+
+    @staticmethod
+    def nixexprs():
+        return [os.path.dirname(os.path.abspath(__file__)) + "/nix"]
+
+    @staticmethod
+    def load():
+        return [
+            "nixops_aws.resources",
+            "nixops_aws.backends.ec2",
+            "nixops_aws.resources.ec2_keypair",
+        ]
 
 
 @nixops.plugins.hookimpl
-def nixexprs():
-    return [os.path.dirname(os.path.abspath(__file__)) + "/nix"]
-
-
-@nixops.plugins.hookimpl
-def machine_hook() -> MachinePlugin:
-
-    from .lib import generate_vpn_key
-
-    class EncryptedLinksMachinePlugin(MachinePlugin):
-
-        def post_wait(self, m: MachineState) -> None:
-            generate_vpn_key(m)
-
-    return EncryptedLinksMachinePlugin()
-
-
-@nixops.plugins.hookimpl
-def deployment_hook() -> DeploymentPlugin:
-
-    from .lib import mk_matrix
-
-    class EncryptedLinksDeploymentPlugin(DeploymentPlugin):
-
-        def physical_spec(self, d: Deployment):
-            return mk_matrix(d)
-
-    return EncryptedLinksDeploymentPlugin()
+def plugin():
+    return NixopsEncryptedLinksPlugin()
