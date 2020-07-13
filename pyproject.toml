@@ -8,7 +8,7 @@ include = [ "nixops_encrypted_links/nix/*.nix" ]
 
 [tool.poetry.dependencies]
 python = "^3.7"
-nixops = {path = "../nixops"}
+nixops = {git = "https://github.com/NixOS/nixops.git"}
 
 [tool.poetry.plugins."nixops"]
 encrypted_links = "nixops_encrypted_links.plugin"
