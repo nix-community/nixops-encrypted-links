@@ -14,7 +14,7 @@ nixops = {git = "https://github.com/NixOS/nixops.git"}
 encrypted_links = "nixops_encrypted_links.plugin"
 
 [tool.poetry.dev-dependencies]
-mypy = "^0.770"
+mypy = "^0.790"
 
 [build-system]
 requires = ["poetry>=0.12"]

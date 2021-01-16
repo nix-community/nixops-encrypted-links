@@ -52,6 +52,10 @@ def generate_vpn_key(s: MachineState):
 class EncryptedLinksDefinition(MachineDefinition):
     encryptedLinksTo: Set[str]
 
+    @classmethod
+    def get_type(cls):
+        return "encrypted-links"
+
 
 def index_to_private_ip(index: int) -> str:
     n = 105 + index / 256
