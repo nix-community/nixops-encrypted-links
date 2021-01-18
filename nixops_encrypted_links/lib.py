@@ -1,23 +1,17 @@
 from collections import defaultdict
 from typing import (
-    Callable,
     Dict,
     Optional,
-    TextIO,
     Set,
     List,
     DefaultDict,
     Any,
     Tuple,
-    ValuesView,
-    Union,
-    cast,
 )
 
 import nixops.resources
-from nixops.backends import MachineState, MachineDefinition, MachineOptions
+from nixops.backends import MachineState, MachineDefinition
 from nixops.deployment import Deployment, is_machine
-from typing import Dict
 
 
 def generate_vpn_key(s: MachineState):
@@ -58,7 +52,7 @@ class EncryptedLinksDefinition(MachineDefinition):
 
 
 def index_to_private_ip(index: int) -> str:
-    n = 105 + index / 256
+    n = 105 + index // 256
     assert n <= 255
     return "192.168.{0}.{1}".format(n, index % 256)
 
@@ -124,16 +118,16 @@ def mk_matrix(d: Deployment) -> Dict[str, List[Dict[Tuple[str, ...], Any]]]:
             m2 = active_machines[m2_name]
 
             # Don't create two tunnels between a pair of machines.
+            if not isinstance(m.index, int):
+                raise ValueError(f"{m.name} is missing an optional index required for encrypted-links")
+            if not isinstance(m2.index, int):
+                raise ValueError(f"{m2.name} is missing an optional index required for encrypted-links")
             if (
                 m.name
                 in to_encrypted_links_defn(self._machine_definition_for_required(m2.name)).encryptedLinksTo
                 and m.name >= m2.name
             ):
                 continue
-            if not m.index:
-                raise ValueError("Index was: {type(m.index)}")
-            if not m2.index:
-                raise ValueError("Index was: {type(m.index)}")
             local_ipv4 = index_to_private_ip(m.index)
             remote_ipv4 = index_to_private_ip(m2.index)
             local_tunnel = 10000 + m2.index
@@ -163,13 +157,6 @@ def mk_matrix(d: Deployment) -> Dict[str, List[Dict[Tuple[str, ...], Any]]]:
             trusted_interfaces[m.name].add("tun" + str(local_tunnel))
             trusted_interfaces[m2.name].add("tun" + str(remote_tunnel))
 
-        private_ipv4 = m.private_ipv4
-        if private_ipv4:
-            attrs_list.append({("networking", "privateIPv4"): private_ipv4})
-        public_ipv4 = m.public_ipv4
-        if public_ipv4:
-            attrs_list.append({("networking", "publicIPv4"): public_ipv4})
-
         public_vpn_key = m.public_vpn_key
         if public_vpn_key:
             attrs_list.append({("networking", "vpnPublicKey"): public_vpn_key})
@@ -180,6 +167,17 @@ def mk_matrix(d: Deployment) -> Dict[str, List[Dict[Tuple[str, ...], Any]]]:
     def emit_resource(r: nixops.resources.ResourceState) -> None:
         config = attrs_per_resource[r.name]
         if is_machine(r):
+            # Sort the hosts by its canonical host names.
+            sorted_hosts = sorted(
+                hosts[r.name].items(), key=lambda item: item[1][0]
+            )
+
+            # Just to remember the format:
+            #   ip_address canonical_hostname [aliases...]
+            extra_hosts = {
+                f"{ip}": names for ip, names in sorted_hosts
+            }
+
             if authorized_keys[r.name]:
                 config.append(
                     {
@@ -200,9 +198,9 @@ def mk_matrix(d: Deployment) -> Dict[str, List[Dict[Tuple[str, ...], Any]]]:
                     ("networking", "firewall"): {
                         "trustedInterfaces": list(trusted_interfaces[r.name])
                     },
+                    ("networking", "hosts"): extra_hosts,
                 }
             )
-
 
             # Add SSH public host keys for all machines in network.
             for m2 in active_machines.values():

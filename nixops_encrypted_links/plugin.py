@@ -38,11 +38,7 @@ class NixopsEncryptedLinksPlugin(Plugin):
 
     @staticmethod
     def load():
-        return [
-            "nixops_aws.resources",
-            "nixops_aws.backends.ec2",
-            "nixops_aws.resources.ec2_keypair",
-        ]
+        return []
 
 
 @nixops.plugins.hookimpl
